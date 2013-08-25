@@ -3,8 +3,8 @@ package org.mitre.dsmiley.httpproxy;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.Date;
 
-import javax.jws.WebParam;
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.callback.NameCallback;
@@ -20,7 +20,10 @@ import javax.servlet.http.HttpServletResponse;
 import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.dmr.ModelNode;
 
-@WebServlet(urlPatterns = "/", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, value = "http://localhost:8080/okolab/rest/rez"))
+@WebServlet(urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, 
+	value = 
+	"http://localhost:8080/okolab"
+	))
 public class RedeployerProxy extends ProxyServlet {
 	private static final long serialVersionUID = 1L;
 
@@ -58,7 +61,10 @@ public class RedeployerProxy extends ProxyServlet {
 			}
 			return false;
 		} else {
-			return entry.lastModified() > lastDeployed;
+			boolean newer = entry.lastModified() > lastDeployed;
+			System.out.println(new Date(entry.lastModified()) + " vs. "+new Date(lastDeployed) + " - "+entry.getName()+
+					(newer ? " !!!!!!! ": "")) ;
+			return newer;
 		}
 	}
 
