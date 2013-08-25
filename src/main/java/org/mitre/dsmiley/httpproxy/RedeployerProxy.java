@@ -20,26 +20,22 @@ import javax.servlet.http.HttpServletResponse;
 import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.dmr.ModelNode;
 
-@WebServlet(urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, 
-	value = 
-	"http://localhost:8080/okolab"
-	))
+@WebServlet(urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, value = "http://localhost:8080/okolab"))
 public class RedeployerProxy extends ProxyServlet {
 	private static final long serialVersionUID = 1L;
-
 	private String target = "okolab";
-
 	private String user = "rzymek";
-
 	private String pass = "q";
 
 	@Override
 	protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		System.out.println("RedeployerProxy.service()");
-		File deployments = new File("/home/rzymek/opt/jboss-as-7.1.1.Final/standalone/deployments");
-		File classes = new File(deployments, target + ".war/WEB-INF/classes");
+		File deployments = new File(System.getProperty("jboss.server.base.dir"), "deployments");
+		File war = new File(deployments, target + ".war");
+		File[] monitor = { new File(war, "WEB-INF/classes"), new File(war, "WEB-INF/lib"), };
 		long lastDeployed = new File(deployments, target + ".war.deployed").lastModified();
-		if (isNewer(classes, lastDeployed)) {
+		if (isNewer(lastDeployed, monitor)) {
+			new File(deployments, target + ".war.deployed").setLastModified(new Date().getTime());
 			System.out.println("redeploying...");
 			ModelControllerClient client = createClient(InetAddress.getByName("localhost"), 9999, user, pass, "management");
 			ModelNode operation = new ModelNode();
@@ -51,21 +47,24 @@ public class RedeployerProxy extends ProxyServlet {
 		super.service(request, response);
 	}
 
-	private boolean isNewer(File entry, long lastDeployed) {
-		if (entry.isDirectory()) {
-			File[] files = entry.listFiles();
-			for (File file : files) {
-				if (isNewer(file, lastDeployed)) {
+	private boolean isNewer(long lastDeployed, File... entries) {
+		for (File entry : entries) {
+			if (entry.isDirectory()) {
+				File[] files = entry.listFiles();
+				if (isNewer(lastDeployed, files)) {
 					return true;
 				}
+			} else {
+				boolean newer = entry.lastModified() > lastDeployed;
+				String isnewer = newer ? " !!!!!!! " : "";
+				String msg = new Date(entry.lastModified()) + " vs. " + new Date(lastDeployed) + " - " + entry.getName() + isnewer;
+				System.out.println(msg);
+				if(newer) {
+					return newer;
+				}
 			}
-			return false;
-		} else {
-			boolean newer = entry.lastModified() > lastDeployed;
-			System.out.println(new Date(entry.lastModified()) + " vs. "+new Date(lastDeployed) + " - "+entry.getName()+
-					(newer ? " !!!!!!! ": "")) ;
-			return newer;
 		}
+		return false;
 	}
 
 	static ModelControllerClient createClient(final InetAddress host, final int port, final String username, final String password,
