@@ -68,7 +68,7 @@ public class ProxyServlet extends HttpServlet {
   public static final String P_LOG = "log";
 
   /** The parameter name for the target (destination) URI to proxy to. */
-  private static final String P_TARGET_URI = "targetUri";
+  public static final String P_TARGET_URI = "targetUri";
 
   /* MISC */
 
