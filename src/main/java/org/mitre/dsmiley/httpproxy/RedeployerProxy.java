@@ -3,6 +3,7 @@ package org.mitre.dsmiley.httpproxy;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.URI;
 import java.util.Date;
 
 import javax.security.auth.callback.Callback;
@@ -20,7 +21,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.dmr.ModelNode;
 
-@WebServlet(urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, value = "http://localhost:8080/okolab"))
+@WebServlet(urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, value = "http://localhost:9000/okolab"))
 public class RedeployerProxy extends ProxyServlet {
 	private static final long serialVersionUID = 1L;
 	private String target = "okolab";
@@ -29,26 +30,30 @@ public class RedeployerProxy extends ProxyServlet {
 
 	@Override
 	protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		System.out.println("RedeployerProxy.service()");
-		File deployments = new File(System.getProperty("jboss.server.base.dir"), "deployments");
-		File war = new File(deployments, target + ".war");
-		File[] monitor = { new File(war, "WEB-INF/classes"), new File(war, "WEB-INF/lib"), };
-		File deployed = new File(deployments, target + ".war.deployed");
-		long lastDeployed = deployed.lastModified();
-		if (isNewer(lastDeployed, monitor)) {
-			deployed.createNewFile();
-			deployed.setLastModified(new Date().getTime());
-			System.out.println("redeploying...");
-			ModelControllerClient client = createClient(InetAddress.getByName("localhost"), 9999, user, pass, "management");
-			System.out.println("before:"+check(client));
-			ModelNode operation = new ModelNode();
-			operation.get("address").add("deployment", "okolab.war");
-			operation.get("operation").set("redeploy");
-			String result = client.execute(operation).toString();
-			System.out.println("redeployment finished:"+result);
-			System.out.println("after:"+check(client));
+		try {
+			targetUri = new URI("http://"+request.getServerName()+":"+request.getServerPort()+"/okolab");
+			File deployments = new File(System.getProperty("jboss.server.base.dir"), "deployments");
+			File war = new File(deployments, target + ".war");
+			File[] monitor = { new File(war, "WEB-INF/classes"), new File(war, "WEB-INF/lib"), };
+			File deployed = new File(deployments, target + ".war.deployed");
+			long lastDeployed = deployed.lastModified();
+			if (isNewer(lastDeployed, monitor) || request.getParameter("reload")!=null) {
+				deployed.createNewFile();
+				deployed.setLastModified(new Date().getTime());
+				System.out.println("redeploying...");
+				ModelControllerClient client = createClient(InetAddress.getByName("localhost"), 9999, user, pass, "management");
+				System.out.println("before:"+check(client));
+				ModelNode operation = new ModelNode();
+				operation.get("address").add("deployment", "okolab.war");
+				operation.get("operation").set("redeploy");
+				String result = client.execute(operation).toString();
+				System.out.println("redeployment finished:"+result);
+				System.out.println("after:"+check(client));
+			}
+			super.service(request, response);
+		} catch (Exception e) {
+			e.printStackTrace(response.getWriter());
 		}
-		super.service(request, response);
 	}
 
 	private String check(ModelControllerClient client) throws IOException {
@@ -68,9 +73,9 @@ public class RedeployerProxy extends ProxyServlet {
 			} else {
 				boolean newer = entry.lastModified() > lastDeployed;
 				String isnewer = newer ? " !!!!!!! " : "";
-				String msg = new Date(entry.lastModified()) + " vs. " + new Date(lastDeployed) + " - " + entry.getName() + isnewer;
-				System.out.println(msg);
+				String msg = new Date(entry.lastModified()) + " vs. " + new Date(lastDeployed) + " - " + entry.getName() + isnewer;				
 				if(newer) {
+					System.out.println(msg);
 					return newer;
 				}
 			}
