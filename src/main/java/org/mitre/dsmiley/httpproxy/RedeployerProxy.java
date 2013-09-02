@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.util.Date;
 
 import javax.security.auth.callback.Callback;
@@ -27,7 +28,16 @@ public class RedeployerProxy extends ProxyServlet {
 	private String target = "okolab";
 	private String user = "rzymek";
 	private String pass = "q";
+	private ModelControllerClient client;
 
+	@Override
+	public void init() throws ServletException {
+		try {
+			client = createClient(InetAddress.getByName("localhost"), 9999, user, pass, "management");
+		} catch (UnknownHostException e) {
+			throw new ServletException(e);
+		}
+	}
 	@Override
 	protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		try {
@@ -35,20 +45,19 @@ public class RedeployerProxy extends ProxyServlet {
 			File deployments = new File(System.getProperty("jboss.server.base.dir"), "deployments");
 			File war = new File(deployments, target + ".war");
 			File[] monitor = { new File(war, "WEB-INF/classes"), new File(war, "WEB-INF/lib"), };
-			File deployed = new File(deployments, target + ".war.deployed");
+			File deployed = new File(deployments, target + ".war.redep");
 			long lastDeployed = deployed.lastModified();
 			if (isNewer(lastDeployed, monitor) || request.getParameter("reload")!=null) {
 				deployed.createNewFile();
 				deployed.setLastModified(new Date().getTime());
 				System.out.println("redeploying...");
-				ModelControllerClient client = createClient(InetAddress.getByName("localhost"), 9999, user, pass, "management");
-				System.out.println("before:"+check(client));
+				
 				ModelNode operation = new ModelNode();
 				operation.get("address").add("deployment", "okolab.war");
 				operation.get("operation").set("redeploy");
+				
 				String result = client.execute(operation).toString();
 				System.out.println("redeployment finished:"+result);
-				System.out.println("after:"+check(client));
 			}
 			super.service(request, response);
 		} catch (Exception e) {
@@ -59,10 +68,11 @@ public class RedeployerProxy extends ProxyServlet {
 	private String check(ModelControllerClient client) throws IOException {
 		ModelNode operation = new ModelNode();			
 		operation.get("address").add("deployment", "okolab.war");
-		operation.get("operation").add("read-attribute");
-		operation.get("name").set("status");
+		operation.get("operation").set("read-resource");
+//		operation.get("name").set("enabled");
 		return client.execute(operation).toString();
 	}
+	
 	private boolean isNewer(long lastDeployed, File... entries) {
 		for (File entry : entries) {
 			if (entry.isDirectory()) {
