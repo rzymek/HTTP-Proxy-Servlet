@@ -26,9 +26,16 @@ public class Redeployer extends ProxyServlet {
 	protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		try {
 			if (client == null) {
+				// http://www.alemoi.com/dev/httpaccess/
 				client = ModelControllerClient.Factory.create(InetAddress.getByName("localhost"), 9999);
 			}
 			if (target == null) {
+				ModelNode operation = new ModelNode();
+				operation.get("operation").set("read-children-resources");
+				operation.get("child-type").set("deployment");
+				
+				String result = client.execute(operation).toString();
+				System.out.println(result);
 				target = "okolab";
 			}
 			targetUri = new URI("http://" + request.getServerName() + ":" + request.getServerPort() + "/" + target);
