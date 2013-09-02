@@ -66,14 +66,6 @@ public class Redeployer extends ProxyServlet {
 		}
 	}
 
-	private String check(ModelControllerClient client) throws IOException {
-		ModelNode operation = new ModelNode();			
-		operation.get("address").add("deployment", "okolab.war");
-		operation.get("operation").set("read-resource");
-//		operation.get("name").set("enabled");
-		return client.execute(operation).toString();
-	}
-	
 	private boolean isNewer(long lastDeployed, File... entries) {
 		for (File entry : entries) {
 			if (entry.isDirectory()) {
