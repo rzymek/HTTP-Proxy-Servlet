@@ -33,20 +33,31 @@ public class RedeployerProxy extends ProxyServlet {
 		File deployments = new File(System.getProperty("jboss.server.base.dir"), "deployments");
 		File war = new File(deployments, target + ".war");
 		File[] monitor = { new File(war, "WEB-INF/classes"), new File(war, "WEB-INF/lib"), };
-		long lastDeployed = new File(deployments, target + ".war.deployed").lastModified();
+		File deployed = new File(deployments, target + ".war.deployed");
+		long lastDeployed = deployed.lastModified();
 		if (isNewer(lastDeployed, monitor)) {
-			new File(deployments, target + ".war.deployed").setLastModified(new Date().getTime());
+			deployed.createNewFile();
+			deployed.setLastModified(new Date().getTime());
 			System.out.println("redeploying...");
 			ModelControllerClient client = createClient(InetAddress.getByName("localhost"), 9999, user, pass, "management");
+			System.out.println("before:"+check(client));
 			ModelNode operation = new ModelNode();
-			operation.get("operation").set("redeploy");
 			operation.get("address").add("deployment", "okolab.war");
+			operation.get("operation").set("redeploy");
 			String result = client.execute(operation).toString();
-			System.out.println(result);
+			System.out.println("redeployment finished:"+result);
+			System.out.println("after:"+check(client));
 		}
 		super.service(request, response);
 	}
 
+	private String check(ModelControllerClient client) throws IOException {
+		ModelNode operation = new ModelNode();			
+		operation.get("address").add("deployment", "okolab.war");
+		operation.get("operation").add("read-attribute");
+		operation.get("name").set("status");
+		return client.execute(operation).toString();
+	}
 	private boolean isNewer(long lastDeployed, File... entries) {
 		for (File entry : entries) {
 			if (entry.isDirectory()) {
