@@ -1,4 +1,4 @@
-package org.mitre.dsmiley.httpproxy;
+package redep;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,9 +21,10 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.dmr.ModelNode;
+import org.mitre.dsmiley.httpproxy.ProxyServlet;
 
-@WebServlet(urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, value = "http://localhost:9000/okolab"))
-public class RedeployerProxy extends ProxyServlet {
+@WebServlet(urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, value = "http://localhost:9000"))
+public class Redeployer extends ProxyServlet {
 	private static final long serialVersionUID = 1L;
 	private String target = "okolab";
 	private String user = "rzymek";
