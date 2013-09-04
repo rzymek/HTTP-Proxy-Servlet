@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebInitParam;
 import javax.servlet.annotation.WebServlet;
@@ -19,8 +20,8 @@ import javax.servlet.http.HttpServletResponse;
 import org.eclipse.xtend2.lib.StringConcatenation;
 import org.eclipse.xtext.xbase.lib.Conversions;
 import org.eclipse.xtext.xbase.lib.Exceptions;
+import org.eclipse.xtext.xbase.lib.Functions.Function0;
 import org.eclipse.xtext.xbase.lib.Functions.Function1;
-import org.eclipse.xtext.xbase.lib.InputOutput;
 import org.eclipse.xtext.xbase.lib.IterableExtensions;
 import org.eclipse.xtext.xbase.lib.ListExtensions;
 import org.eclipse.xtext.xbase.lib.ObjectExtensions;
@@ -33,6 +34,14 @@ import org.mitre.dsmiley.httpproxy.ProxyServlet;
 @WebServlet(name = "redep", urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, value = "http://localhost:9000"))
 @SuppressWarnings("all")
 public class Redeployer extends ProxyServlet {
+  private final static Logger log = new Function0<Logger>() {
+    public Logger apply() {
+      String _name = Redeployer.class.getName();
+      Logger _logger = Logger.getLogger(_name);
+      return _logger;
+    }
+  }.apply();
+  
   private String target = null;
   
   private ModelControllerClient client;
@@ -133,7 +142,6 @@ public class Redeployer extends ProxyServlet {
         Date _date = new Date();
         long _time = _date.getTime();
         deployed.setLastModified(_time);
-        InputOutput.<String>println("redeploying...");
         ModelNode _modelNode_1 = new ModelNode();
         final Procedure1<ModelNode> _function_4 = new Procedure1<ModelNode>() {
             public void apply(final ModelNode it) {
@@ -170,7 +178,7 @@ public class Redeployer extends ProxyServlet {
           return;
         }
         String _plus_2 = ("redeployment finished:" + result_1);
-        InputOutput.<String>println(_plus_2);
+        Redeployer.log.info(_plus_2);
       }
       super.service(request, response);
     } catch (final Throwable _t) {
@@ -207,7 +215,7 @@ public class Redeployer extends ProxyServlet {
           String _name = entry.getName();
           String msg = (_plus_2 + _name);
           if (newer) {
-            InputOutput.<String>println(msg);
+            Redeployer.log.info(msg);
             return newer;
           }
         }

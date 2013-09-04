@@ -5,6 +5,7 @@ import java.io.IOException
 import java.net.InetAddress
 import java.net.URI
 import java.util.Date
+import java.util.logging.Logger
 import javax.servlet.ServletException
 import javax.servlet.annotation.WebInitParam
 import javax.servlet.annotation.WebServlet
@@ -16,6 +17,8 @@ import org.mitre.dsmiley.httpproxy.ProxyServlet
 
 @WebServlet(name='redep', urlPatterns='/*', initParams=@WebInitParam(name=ProxyServlet.P_TARGET_URI, value='http://localhost:9000'))
 class Redeployer extends ProxyServlet {
+	static val log = Logger.getLogger(typeof(Redeployer).name)
+
 	var String target = null
 	var ModelControllerClient client
 
@@ -49,7 +52,6 @@ class Redeployer extends ProxyServlet {
 			if (isNewer(lastDeployed, monitor) || request.getParameter('reload') !== null) {
 				deployed.createNewFile
 				deployed.lastModified = new Date().time
-				println('redeploying...')
 				var result = client.execute(
 					new ModelNode() => [
 						get('address').add('deployment', target + '.war')
@@ -66,7 +68,7 @@ class Redeployer extends ProxyServlet {
 					''')	
 					return
 				}				
-				println('redeployment finished:' + result)
+				log.info('redeployment finished:' + result)
 			}
 			super.service(request, response)
 		} catch (Exception e) {
@@ -85,7 +87,7 @@ class Redeployer extends ProxyServlet {
 				var newer = entry.lastModified > lastDeployed
 				var msg = new Date(entry.lastModified) + ' vs. ' + new Date(lastDeployed) + ' - ' + entry.name
 				if (newer) {
-					println(msg)
+					log.info(msg)
 					return newer;
 				}
 			}
