@@ -31,7 +31,7 @@ import org.jboss.as.controller.client.ModelControllerClient.Factory;
 import org.jboss.dmr.ModelNode;
 import org.mitre.dsmiley.httpproxy.ProxyServlet;
 
-@WebServlet(name = "redep", urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, value = "http://localhost:9000"))
+@WebServlet(urlPatterns = "/*", initParams = @WebInitParam(name = ProxyServlet.P_TARGET_URI, value = "http://localhost:9000"))
 @SuppressWarnings("all")
 public class Redeployer extends ProxyServlet {
   private final static Logger log = new Function0<Logger>() {
@@ -44,9 +44,9 @@ public class Redeployer extends ProxyServlet {
   
   private String target = null;
   
-  private ModelControllerClient client;
+  private ModelControllerClient client = null;
   
-  protected void service(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
+  public void service(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
     try {
       boolean _equals = Objects.equal(this.client, null);
       if (_equals) {
@@ -193,35 +193,48 @@ public class Redeployer extends ProxyServlet {
   }
   
   private boolean isNewer(final long lastDeployed, final File... entries) {
-    boolean _xblockexpression = false;
-    {
-      for (final File entry : entries) {
-        boolean _isDirectory = entry.isDirectory();
-        if (_isDirectory) {
-          File[] files = entry.listFiles();
-          boolean _isNewer = this.isNewer(lastDeployed, files);
-          if (_isNewer) {
-            return true;
-          }
-        } else {
-          long _lastModified = entry.lastModified();
-          boolean newer = (_lastModified > lastDeployed);
-          long _lastModified_1 = entry.lastModified();
-          Date _date = new Date(_lastModified_1);
-          String _plus = (_date + " vs. ");
-          Date _date_1 = new Date(lastDeployed);
-          String _plus_1 = (_plus + _date_1);
-          String _plus_2 = (_plus_1 + " - ");
-          String _name = entry.getName();
-          String msg = (_plus_2 + _name);
-          if (newer) {
-            Redeployer.log.info(msg);
-            return newer;
-          }
+    boolean _xifexpression = false;
+    final Function1<File,Boolean> _function = new Function1<File,Boolean>() {
+        public Boolean apply(final File it) {
+          boolean _isFile = it.isFile();
+          return Boolean.valueOf(_isFile);
         }
-      }
-      _xblockexpression = (false);
+      };
+    Iterable<File> _filter = IterableExtensions.<File>filter(((Iterable<File>)Conversions.doWrapArray(entries)), _function);
+    final Function1<File,Boolean> _function_1 = new Function1<File,Boolean>() {
+        public Boolean apply(final File it) {
+          long _lastModified = it.lastModified();
+          boolean _greaterThan = (_lastModified > lastDeployed);
+          return Boolean.valueOf(_greaterThan);
+        }
+      };
+    boolean _exists = IterableExtensions.<File>exists(_filter, _function_1);
+    if (_exists) {
+      _xifexpression = true;
+    } else {
+      final Function1<File,Boolean> _function_2 = new Function1<File,Boolean>() {
+          public Boolean apply(final File it) {
+            boolean _isDirectory = it.isDirectory();
+            return Boolean.valueOf(_isDirectory);
+          }
+        };
+      Iterable<File> _filter_1 = IterableExtensions.<File>filter(((Iterable<File>)Conversions.doWrapArray(entries)), _function_2);
+      final Function1<File,File[]> _function_3 = new Function1<File,File[]>() {
+          public File[] apply(final File it) {
+            File[] _listFiles = it.listFiles();
+            return _listFiles;
+          }
+        };
+      Iterable<File[]> _map = IterableExtensions.<File, File[]>map(_filter_1, _function_3);
+      final Function1<File[],Boolean> _function_4 = new Function1<File[],Boolean>() {
+          public Boolean apply(final File[] it) {
+            boolean _isNewer = Redeployer.this.isNewer(lastDeployed, it);
+            return Boolean.valueOf(_isNewer);
+          }
+        };
+      boolean _exists_1 = IterableExtensions.<File[]>exists(_map, _function_4);
+      _xifexpression = _exists_1;
     }
-    return _xblockexpression;
+    return _xifexpression;
   }
 }

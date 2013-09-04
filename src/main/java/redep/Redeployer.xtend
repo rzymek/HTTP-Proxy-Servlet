@@ -15,14 +15,14 @@ import org.jboss.^as.controller.client.ModelControllerClient
 import org.jboss.dmr.ModelNode
 import org.mitre.dsmiley.httpproxy.ProxyServlet
 
-@WebServlet(name='redep', urlPatterns='/*', initParams=@WebInitParam(name=ProxyServlet.P_TARGET_URI, value='http://localhost:9000'))
+@WebServlet(urlPatterns='/*', initParams=@WebInitParam(name=ProxyServlet.P_TARGET_URI, value='http://localhost:9000'))
 class Redeployer extends ProxyServlet {
 	static val log = Logger.getLogger(typeof(Redeployer).name)
 
 	var String target = null
-	var ModelControllerClient client
+	var ModelControllerClient client = null
 
-	protected override service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+	override service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		try {
 			if (client == null) {
 				client = ModelControllerClient.Factory.create(InetAddress.getByName('localhost'), 9999)
@@ -75,23 +75,13 @@ class Redeployer extends ProxyServlet {
 			e.printStackTrace(response.writer)
 		}
 	}
-
+	
 	private def boolean isNewer(long lastDeployed, File... entries) {
-		for (entry : entries) {
-			if (entry.directory) {
-				var files = entry.listFiles
-				if (isNewer(lastDeployed, files)) {
-					return true;
-				}
-			} else {
-				var newer = entry.lastModified > lastDeployed
-				var msg = new Date(entry.lastModified) + ' vs. ' + new Date(lastDeployed) + ' - ' + entry.name
-				if (newer) {
-					log.info(msg)
-					return newer;
-				}
-			}
+		if(entries.filter[file].exists[lastModified > lastDeployed]) {
+			true			
+		}else{
+			entries.filter[directory].map[listFiles].exists[isNewer(lastDeployed, it)]
 		}
-		false
 	}
+
 }
