@@ -24,8 +24,16 @@ class Redeployer extends ProxyServlet {
 
 	override service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		try {
+			if (request.getParameter('redep-reset') != null) {
+				client = null;
+				target = null;				
+			}
 			if (client == null) {
 				client = ModelControllerClient.Factory.create(InetAddress.getByName('localhost'), 9999)
+			}
+			val targetParam = request.getParameter('redep-target')
+			if(targetParam != null) {
+				target = targetParam
 			}
 			if (target == null) {
 				var result = client.execute(
@@ -33,11 +41,15 @@ class Redeployer extends ProxyServlet {
 						get('operation').set('read-children-resources')
 						get('child-type').set('deployment')
 					])
-				val wars = result.get('result').asList.map[it.keys.head].map[it.replaceFirst('.war$', '')].filter[
-					it != 'redep']
+				val wars = result.get('result').asList.map[it.keys.head].map[it.replaceFirst('.war$', '')].filter[it != 'redep']
 				if (wars.size != 1) {
-					response.contentType = 'text/plain'
-					response.writer.println('Place deploy one and only one .war application (besides redep.war)')
+					response.contentType = 'text/html'
+					response.writer.println('''<html><head><title>Redeployer</title></head><body>
+					Select web application for on-refresh-redeployment:<br/><ul>
+					«FOR war : wars»
+					<li><a href="?redep-target=«war»">«war»</a><br/></li>
+					«ENDFOR»
+					</ul></body></html>''')
 					return;
 				} else {
 					target = wars.head
@@ -47,18 +59,15 @@ class Redeployer extends ProxyServlet {
 			var deployments = new File(System.getProperty('jboss.server.base.dir'), 'deployments')
 			var war = new File(deployments, target + '.war')
 			var monitor = #[new File(war, 'WEB-INF/classes'), new File(war, 'WEB-INF/lib')]
-			var deployed = new File(deployments, target + '.war.redep')
-			var lastDeployed = deployed.lastModified
-			if (isNewer(lastDeployed, monitor) || request.getParameter('reload') !== null) {
-				deployed.createNewFile
-				deployed.lastModified = new Date().time
+			val lastDeployed = servletContext.getAttribute(target+'.lastDeployed') as Long ?: Long.valueOf(0);
+			if (isNewer(lastDeployed, monitor) || request.getParameter('redep') !== null) {
+				servletContext.setAttribute(target+'.lastDeployed', new Date().time)
 				var result = client.execute(
 					new ModelNode() => [
 						get('address').add('deployment', target + '.war')
 						get('operation').set('redeploy')
 					])
 
-				//				if(result.get('outcome'))
 				if(!result.get('outcome').asString.equals('success')) {
 					response.contentType = 'text/plain'
 					response.writer.println('''

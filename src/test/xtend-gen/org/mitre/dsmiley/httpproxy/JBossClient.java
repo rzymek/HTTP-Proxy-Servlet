@@ -26,13 +26,13 @@ public class JBossClient {
       final ModelControllerClient client = Factory.create(_byName, 9999);
       ModelNode _modelNode = new ModelNode();
       final Procedure1<ModelNode> _function = new Procedure1<ModelNode>() {
-          public void apply(final ModelNode it) {
-            ModelNode _get = it.get("address");
-            _get.add("deployment", "okolab.war");
-            ModelNode _get_1 = it.get("operation");
-            _get_1.set("redeploy");
-          }
-        };
+        public void apply(final ModelNode it) {
+          ModelNode _get = it.get("address");
+          _get.add("deployment", "okolab.war");
+          ModelNode _get_1 = it.get("operation");
+          _get_1.set("redeploy");
+        }
+      };
       ModelNode _doubleArrow = ObjectExtensions.<ModelNode>operator_doubleArrow(_modelNode, _function);
       ModelNode result = client.execute(_doubleArrow);
       ModelNode _get = result.get("outcome");
