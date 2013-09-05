@@ -1,6 +1,7 @@
 package redep;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import java.io.File;
 import java.io.IOException;
@@ -81,69 +82,135 @@ public class Redeployer extends ProxyServlet {
         ModelNode result = this.client.execute(_doubleArrow);
         ModelNode _get = result.get("result");
         List<ModelNode> _asList = _get.asList();
-        final Function1<ModelNode,String> _function_1 = new Function1<ModelNode,String>() {
-          public String apply(final ModelNode it) {
-            Set<String> _keys = it.keys();
-            String _head = IterableExtensions.<String>head(_keys);
-            return _head;
+        final Function1<ModelNode,Iterable<ModelNode>> _function_1 = new Function1<ModelNode,Iterable<ModelNode>>() {
+          public Iterable<ModelNode> apply(final ModelNode node) {
+            Set<String> _keys = node.keys();
+            final Function1<String,ModelNode> _function = new Function1<String,ModelNode>() {
+              public ModelNode apply(final String it) {
+                ModelNode _get = node.get(it);
+                return _get;
+              }
+            };
+            Iterable<ModelNode> _map = IterableExtensions.<String, ModelNode>map(_keys, _function);
+            return _map;
           }
         };
-        List<String> _map = ListExtensions.<ModelNode, String>map(_asList, _function_1);
-        final Function1<String,String> _function_2 = new Function1<String,String>() {
-          public String apply(final String it) {
-            String _replaceFirst = it.replaceFirst(".war$", "");
+        List<Iterable<ModelNode>> _map = ListExtensions.<ModelNode, Iterable<ModelNode>>map(_asList, _function_1);
+        Iterable<ModelNode> _flatten = Iterables.<ModelNode>concat(_map);
+        final Function1<ModelNode,Boolean> _function_2 = new Function1<ModelNode,Boolean>() {
+          public Boolean apply(final ModelNode it) {
+            ModelNode _get = it.get("content");
+            List<ModelNode> _asList = _get.asList();
+            int _size = _asList.size();
+            boolean _equals = (_size == 1);
+            return Boolean.valueOf(_equals);
+          }
+        };
+        Iterable<ModelNode> _filter = IterableExtensions.<ModelNode>filter(_flatten, _function_2);
+        final Function1<ModelNode,Boolean> _function_3 = new Function1<ModelNode,Boolean>() {
+          public Boolean apply(final ModelNode it) {
+            ModelNode _get = it.get("content");
+            ModelNode _get_1 = _get.get(0);
+            ModelNode _get_2 = _get_1.get("archive");
+            boolean _asBoolean = _get_2.asBoolean();
+            boolean _not = (!_asBoolean);
+            return Boolean.valueOf(_not);
+          }
+        };
+        Iterable<ModelNode> _filter_1 = IterableExtensions.<ModelNode>filter(_filter, _function_3);
+        final Function1<ModelNode,Boolean> _function_4 = new Function1<ModelNode,Boolean>() {
+          public Boolean apply(final ModelNode it) {
+            ModelNode _get = it.get("subsystem");
+            Set<String> _keys = _get.keys();
+            boolean _contains = _keys.contains("web");
+            return Boolean.valueOf(_contains);
+          }
+        };
+        Iterable<ModelNode> _filter_2 = IterableExtensions.<ModelNode>filter(_filter_1, _function_4);
+        final Function1<ModelNode,String> _function_5 = new Function1<ModelNode,String>() {
+          public String apply(final ModelNode it) {
+            ModelNode _get = it.get("name");
+            String _asString = _get.asString();
+            String _replaceFirst = _asString.replaceFirst("[.]war$", "");
             return _replaceFirst;
           }
         };
-        List<String> _map_1 = ListExtensions.<String, String>map(_map, _function_2);
-        final Function1<String,Boolean> _function_3 = new Function1<String,Boolean>() {
+        Iterable<String> _map_1 = IterableExtensions.<ModelNode, String>map(_filter_2, _function_5);
+        final Function1<String,Boolean> _function_6 = new Function1<String,Boolean>() {
           public Boolean apply(final String it) {
-            boolean _notEquals = (!Objects.equal(it, "redep"));
-            return Boolean.valueOf(_notEquals);
+            ServletContext _servletContext = Redeployer.this.getServletContext();
+            String _contextPath = _servletContext.getContextPath();
+            String _plus = ("/" + it);
+            boolean _equals = _contextPath.equals(_plus);
+            boolean _not = (!_equals);
+            return Boolean.valueOf(_not);
           }
         };
-        final Iterable<String> wars = IterableExtensions.<String>filter(_map_1, _function_3);
-        int _size = IterableExtensions.size(wars);
-        boolean _notEquals_2 = (_size != 1);
-        if (_notEquals_2) {
+        final Iterable<String> wars = IterableExtensions.<String>filter(_map_1, _function_6);
+        boolean _isEmpty = IterableExtensions.isEmpty(wars);
+        if (_isEmpty) {
           response.setContentType("text/html");
           PrintWriter _writer = response.getWriter();
           StringConcatenation _builder = new StringConcatenation();
           _builder.append("<html><head><title>Redeployer</title></head><body>");
           _builder.newLine();
-          _builder.append("\t\t\t\t\t");
-          _builder.append("Select web application for on-refresh-redeployment:<br/><ul>");
+          _builder.append("<h3>No other exploaded web applications deployed.</h3><br/><br/>");
+          _builder.newLine();
+          _builder.append("Here are all the deployments:<ul>");
           _builder.newLine();
           {
-            for(final String war : wars) {
-              _builder.append("\t\t\t\t\t");
-              _builder.append("<li><a href=\"?redep-target=");
-              _builder.append(war, "					");
-              _builder.append("\">");
-              _builder.append(war, "					");
-              _builder.append("</a><br/></li>");
+            ModelNode _get_1 = result.get("result");
+            List<ModelNode> _asList_1 = _get_1.asList();
+            for(final ModelNode dep : _asList_1) {
+              _builder.append("<li><pre>");
+              _builder.append(dep, "");
+              _builder.append("</pre></li>");
               _builder.newLineIfNotEmpty();
             }
           }
-          _builder.append("\t\t\t\t\t");
           _builder.append("</ul></body></html>");
           _writer.println(_builder);
           return;
         } else {
-          String _head = IterableExtensions.<String>head(wars);
-          this.target = _head;
+          int _size = IterableExtensions.size(wars);
+          boolean _notEquals_2 = (_size != 1);
+          if (_notEquals_2) {
+            response.setContentType("text/html");
+            PrintWriter _writer_1 = response.getWriter();
+            StringConcatenation _builder_1 = new StringConcatenation();
+            _builder_1.append("<html><head><title>Redeployer</title></head><body>");
+            _builder_1.newLine();
+            _builder_1.append("Select web application for on-refresh-redeployment:<br/><ul>");
+            _builder_1.newLine();
+            {
+              for(final String war : wars) {
+                _builder_1.append("<li><a href=\"?redep-target=");
+                _builder_1.append(war, "");
+                _builder_1.append("\">");
+                _builder_1.append(war, "");
+                _builder_1.append("</a><br/></li>");
+                _builder_1.newLineIfNotEmpty();
+              }
+            }
+            _builder_1.append("</ul></body></html>");
+            _writer_1.println(_builder_1);
+            return;
+          } else {
+            String _head = IterableExtensions.<String>head(wars);
+            this.target = _head;
+          }
         }
       }
-      StringConcatenation _builder_1 = new StringConcatenation();
-      _builder_1.append("http://");
+      StringConcatenation _builder_2 = new StringConcatenation();
+      _builder_2.append("http://");
       String _serverName = request.getServerName();
-      _builder_1.append(_serverName, "");
-      _builder_1.append(":");
+      _builder_2.append(_serverName, "");
+      _builder_2.append(":");
       int _serverPort = request.getServerPort();
-      _builder_1.append(_serverPort, "");
-      _builder_1.append("/");
-      _builder_1.append(this.target, "");
-      URI _uRI = new URI(_builder_1.toString());
+      _builder_2.append(_serverPort, "");
+      _builder_2.append("/");
+      _builder_2.append(this.target, "");
+      URI _uRI = new URI(_builder_2.toString());
       this.targetUri = _uRI;
       String _property = System.getProperty("jboss.server.base.dir");
       File _file = new File(_property, "deployments");
@@ -182,7 +249,7 @@ public class Redeployer extends ProxyServlet {
         long _time = _date.getTime();
         _servletContext_1.setAttribute(_plus_2, Long.valueOf(_time));
         ModelNode _modelNode_1 = new ModelNode();
-        final Procedure1<ModelNode> _function_4 = new Procedure1<ModelNode>() {
+        final Procedure1<ModelNode> _function_7 = new Procedure1<ModelNode>() {
           public void apply(final ModelNode it) {
             ModelNode _get = it.get("address");
             String _plus = (Redeployer.this.target + ".war");
@@ -191,29 +258,29 @@ public class Redeployer extends ProxyServlet {
             _get_1.set("redeploy");
           }
         };
-        ModelNode _doubleArrow_1 = ObjectExtensions.<ModelNode>operator_doubleArrow(_modelNode_1, _function_4);
+        ModelNode _doubleArrow_1 = ObjectExtensions.<ModelNode>operator_doubleArrow(_modelNode_1, _function_7);
         ModelNode result_1 = this.client.execute(_doubleArrow_1);
-        ModelNode _get_1 = result_1.get("outcome");
-        String _asString = _get_1.asString();
+        ModelNode _get_2 = result_1.get("outcome");
+        String _asString = _get_2.asString();
         boolean _equals_2 = _asString.equals("success");
         boolean _not = (!_equals_2);
         if (_not) {
           response.setContentType("text/plain");
-          PrintWriter _writer_1 = response.getWriter();
-          StringConcatenation _builder_2 = new StringConcatenation();
-          _builder_2.append("Redeployment failed: ");
-          ModelNode _get_2 = result_1.get("failure-description");
+          PrintWriter _writer_2 = response.getWriter();
+          StringConcatenation _builder_3 = new StringConcatenation();
+          _builder_3.append("Redeployment failed: ");
+          ModelNode _get_3 = result_1.get("failure-description");
           String _asString_1 = null;
-          if (_get_2!=null) {
-            _asString_1=_get_2.asString();
+          if (_get_3!=null) {
+            _asString_1=_get_3.asString();
           }
-          _builder_2.append(_asString_1, "");
-          _builder_2.newLineIfNotEmpty();
-          _builder_2.newLine();
-          _builder_2.append("Full response: ");
-          _builder_2.append(result_1, "");
-          _builder_2.newLineIfNotEmpty();
-          _writer_1.println(_builder_2);
+          _builder_3.append(_asString_1, "");
+          _builder_3.newLineIfNotEmpty();
+          _builder_3.newLine();
+          _builder_3.append("Full response: ");
+          _builder_3.append(result_1, "");
+          _builder_3.newLineIfNotEmpty();
+          _writer_2.println(_builder_3);
           return;
         }
         String _plus_3 = ("redeployment finished:" + result_1);
@@ -223,8 +290,8 @@ public class Redeployer extends ProxyServlet {
     } catch (final Throwable _t) {
       if (_t instanceof Exception) {
         final Exception e = (Exception)_t;
-        PrintWriter _writer_2 = response.getWriter();
-        e.printStackTrace(_writer_2);
+        PrintWriter _writer_3 = response.getWriter();
+        e.printStackTrace(_writer_3);
       } else {
         throw Exceptions.sneakyThrow(_t);
       }

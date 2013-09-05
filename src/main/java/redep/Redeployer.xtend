@@ -41,10 +41,30 @@ class Redeployer extends ProxyServlet {
 						get('operation').set('read-children-resources')
 						get('child-type').set('deployment')
 					])
-				val wars = result.get('result').asList.map[it.keys.head].map[it.replaceFirst('.war$', '')].filter[it != 'redep']
-				if (wars.size != 1) {
+				
+				val wars = result.get('result').asList			// 'my.war' => { name: 'my.war', ...}
+					.map[node | node.keys.map[node.get(it)]]  	
+					.flatten							     	//  { name: 'my.war', ... }
+					.filter[get('content').asList.size==1] 		//is not an EAR, just a single entity 
+					.filter[!get('content').get(0).get('archive').asBoolean]//is exploaded 
+					.filter[get('subsystem').keys.contains('web')] 			//is a web-app
+					.map[get('name').asString.replaceFirst('[.]war$','')]
+					.filter[!servletContext.contextPath.equals('/'+it)]		//is not this web-app
+				if (wars.empty) {
 					response.contentType = 'text/html'
-					response.writer.println('''<html><head><title>Redeployer</title></head><body>
+					response.writer.println('''
+					<html><head><title>Redeployer</title></head><body>
+					<h3>No other exploaded web applications deployed.</h3><br/><br/>
+					Here are all the deployments:<ul>
+					«FOR dep : result.get('result').asList»
+					<li><pre>«dep»</pre></li>
+					«ENDFOR»
+					</ul></body></html>''')
+					return;
+				}else if (wars.size != 1) {
+					response.contentType = 'text/html'
+					response.writer.println('''
+					<html><head><title>Redeployer</title></head><body>
 					Select web application for on-refresh-redeployment:<br/><ul>
 					«FOR war : wars»
 					<li><a href="?redep-target=«war»">«war»</a><br/></li>
