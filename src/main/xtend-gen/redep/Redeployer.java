@@ -5,6 +5,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.URI;
@@ -19,11 +20,13 @@ import javax.servlet.annotation.WebInitParam;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.apache.commons.io.IOUtils;
 import org.eclipse.xtend2.lib.StringConcatenation;
 import org.eclipse.xtext.xbase.lib.Conversions;
 import org.eclipse.xtext.xbase.lib.Exceptions;
 import org.eclipse.xtext.xbase.lib.Functions.Function0;
 import org.eclipse.xtext.xbase.lib.Functions.Function1;
+import org.eclipse.xtext.xbase.lib.InputOutput;
 import org.eclipse.xtext.xbase.lib.IterableExtensions;
 import org.eclipse.xtext.xbase.lib.ListExtensions;
 import org.eclipse.xtext.xbase.lib.ObjectExtensions;
@@ -47,6 +50,8 @@ public class Redeployer extends ProxyServlet {
   private String target = null;
   
   private ModelControllerClient client = null;
+  
+  private final String TS_SOURCES = "/home/rzymek/devel/github/okolab.ee6/src/main/ts";
   
   public void service(final HttpServletRequest request, final HttpServletResponse response) throws ServletException, IOException {
     try {
@@ -286,16 +291,71 @@ public class Redeployer extends ProxyServlet {
         String _plus_3 = ("redeployment finished:" + result_1);
         Redeployer.log.info(_plus_3);
       }
+      String _requestURI = request.getRequestURI();
+      boolean _endsWith = _requestURI.endsWith(".js");
+      if (_endsWith) {
+        String _requestURI_1 = request.getRequestURI();
+        ServletContext _servletContext_2 = this.getServletContext();
+        String _contextPath = _servletContext_2.getContextPath();
+        int _length = _contextPath.length();
+        int _plus_4 = (_length + 1);
+        final String js = _requestURI_1.substring(_plus_4);
+        File _file_4 = new File(war_1, js);
+        final File jsfile = _file_4;
+        String _name = jsfile.getName();
+        final String tsName = _name.replaceFirst("\\.js$", ".ts");
+        File _file_5 = new File(this.TS_SOURCES, tsName);
+        final File tsFile = _file_5;
+        boolean _and = false;
+        boolean _exists = tsFile.exists();
+        if (!_exists) {
+          _and = false;
+        } else {
+          long _lastModified = tsFile.lastModified();
+          long _lastModified_1 = jsfile.lastModified();
+          boolean _greaterThan = (_lastModified > _lastModified_1);
+          _and = (_exists && _greaterThan);
+        }
+        if (_and) {
+          String _name_1 = tsFile.getName();
+          String _plus_5 = ("tsc: " + _name_1);
+          InputOutput.<String>println(_plus_5);
+          String _absolutePath = tsFile.getAbsolutePath();
+          String _absolutePath_1 = jsfile.getAbsolutePath();
+          ProcessBuilder _processBuilder = new ProcessBuilder("tsc", _absolutePath, "--out", _absolutePath_1);
+          final ProcessBuilder builder = _processBuilder;
+          builder.redirectErrorStream(true);
+          final Process proc = builder.start();
+          InputStream _inputStream = proc.getInputStream();
+          final String out = IOUtils.toString(_inputStream);
+          String _trim = out.trim();
+          boolean _isEmpty_1 = _trim.isEmpty();
+          boolean _not_1 = (!_isEmpty_1);
+          if (_not_1) {
+            PrintWriter _writer_3 = response.getWriter();
+            String _replace = out.replace("\n", "\\n");
+            String _replace_1 = _replace.replace("\"", "\'");
+            String _plus_6 = ("alert(\"Typescript compiler failure:\\n" + _replace_1);
+            String _plus_7 = (_plus_6 + "\");");
+            _writer_3.println(_plus_7);
+            return;
+          }
+        }
+      }
       super.service(request, response);
     } catch (final Throwable _t) {
       if (_t instanceof Exception) {
         final Exception e = (Exception)_t;
-        PrintWriter _writer_3 = response.getWriter();
-        e.printStackTrace(_writer_3);
+        PrintWriter _writer_4 = response.getWriter();
+        e.printStackTrace(_writer_4);
       } else {
         throw Exceptions.sneakyThrow(_t);
       }
     }
+  }
+  
+  public Object typescript(final HttpServletRequest request) {
+    return null;
   }
   
   private boolean isNewer(final long lastDeployed, final File... entries) {

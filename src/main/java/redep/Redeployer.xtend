@@ -11,6 +11,7 @@ import javax.servlet.annotation.WebInitParam
 import javax.servlet.annotation.WebServlet
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
+import org.apache.commons.io.IOUtils
 import org.jboss.^as.controller.client.ModelControllerClient
 import org.jboss.dmr.ModelNode
 import org.mitre.dsmiley.httpproxy.ProxyServlet
@@ -21,6 +22,8 @@ class Redeployer extends ProxyServlet {
 
 	var String target = null
 	var ModelControllerClient client = null
+	
+	val TS_SOURCES = '/home/rzymek/devel/github/okolab.ee6/src/main/ts';
 
 	override service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		try {
@@ -99,10 +102,32 @@ class Redeployer extends ProxyServlet {
 				}				
 				log.info('redeployment finished:' + result)
 			}
+			//typescript:
+			if(request.requestURI.endsWith('.js')) {
+				val js = request.requestURI.substring(servletContext.contextPath.length+1);				
+				val jsfile = new File(war, js)
+				val tsName = jsfile.name.replaceFirst('\\.js$','.ts')
+				val tsFile = new File(TS_SOURCES, tsName);
+				if(tsFile.exists && tsFile.lastModified > jsfile.lastModified) {
+					println('tsc: '+tsFile.name)
+					val builder = new ProcessBuilder('tsc',tsFile.absolutePath,'--out',jsfile.absolutePath)
+					builder.redirectErrorStream=true;
+					val proc = builder.start();
+					val out = IOUtils.toString(proc.inputStream);
+					if(!out.trim.empty) {
+						response.writer.println('alert("Typescript compiler failure:\\n' + out.replace('\n', '\\n').replace('"',"'") + '");')
+						return;
+					}
+				}
+			}
+			//proxy:
 			super.service(request, response)
 		} catch (Exception e) {
 			e.printStackTrace(response.writer)
 		}
+	}
+	
+	def typescript(HttpServletRequest request) {
 	}
 	
 	private def boolean isNewer(long lastDeployed, File... entries) {
